@@ -490,7 +490,48 @@ details[open] summary::after{content:"\2013"}
 <input type="file" id="picker" accept="image/*" multiple hidden>
 
 <script>
-(function(){
+/* Shared settings (Supabase): everyone who opens this link gets the same settings. */
+var AH_SB={url:'https://niaokqmmfpdebvyyerqu.supabase.co/rest/v1/grid_settings',
+  key:'sb_publishable_FMajZ9Y56-msx-dc85T8wA_s_HXLsU9',
+  keys:['ah_tpl','ah_sizes','ah_lang','ah_price','ah_pricelist','ah_pmode','ah_pfont','ah_psize','ah_ptrack','ah_pcurve','ah_pout','ah_pfill','ah_pstroke','ah_trim','ah_strength','ah_sharp','ah_fmt','ah_out','ah_perzip']};
+AH_SB.h=function(extra){var h={apikey:AH_SB.key,Authorization:'Bearer '+AH_SB.key};for(var k in extra)h[k]=extra[k];return h;};
+AH_SB.pull=function(){
+  return fetch(AH_SB.url+'?select=key,value',{headers:AH_SB.h({}),cache:'no-store'})
+    .then(function(r){ if(!r.ok) throw 0; return r.json(); })
+    .then(function(rows){
+      var changed=false;
+      rows.forEach(function(r){
+        if(AH_SB.keys.indexOf(r.key)<0) return;
+        try{ if(localStorage.getItem(r.key)!==r.value){ localStorage.setItem(r.key,r.value); changed=true; } }catch(e){}
+      });
+      try{ localStorage.setItem('ah_v','2'); }catch(e){}   // shared values win over the old one-time defaults
+      return changed;
+    });
+};
+AH_SB.pending={}; AH_SB.t=null;
+AH_SB.queue=function(k,v){
+  if(AH_SB.keys.indexOf(k)<0) return;
+  AH_SB.pending[k]=String(v);
+  clearTimeout(AH_SB.t); AH_SB.t=setTimeout(AH_SB.flush,800);
+};
+AH_SB.flush=function(){
+  var rows=Object.keys(AH_SB.pending).map(function(k){return {key:k,value:AH_SB.pending[k]};});
+  AH_SB.pending={}; if(!rows.length) return;
+  fetch(AH_SB.url+'?on_conflict=key',{method:'POST',keepalive:true,
+    headers:AH_SB.h({'Content-Type':'application/json',Prefer:'resolution=merge-duplicates,return=minimal'}),
+    body:JSON.stringify(rows)}).catch(function(){});
+};
+document.addEventListener('visibilitychange',function(){
+  if(document.visibilityState==='hidden'){ clearTimeout(AH_SB.t); AH_SB.flush(); return; }
+  if(window.AH_BUSY && window.AH_BUSY()) return;
+  AH_SB.pull().then(function(ch){ if(ch) location.reload(); }).catch(function(){});
+});
+</script>
+<script>
+(function(start){
+  var done=false; function go(){ if(!done){ done=true; start(); } }
+  AH_SB.pull().then(go,go); setTimeout(go,3000);
+})(function(){
   "use strict";
   var OUT_W=2048, OUT_H=2560;
   var photos=[], groups=[], meta=new Map();
@@ -518,7 +559,8 @@ details[open] summary::after{content:"\2013"}
       localStorage.setItem('ah_v','2');
     }
   }catch(e){}
-  function save(k,v){ try{localStorage.setItem(k,v);}catch(e){} }
+  function save(k,v){ try{localStorage.setItem(k,v);}catch(e){} AH_SB.queue(k,v); }
+  window.AH_BUSY=function(){ return building || (typeof photos!=='undefined' && photos.length>0); };
 
   var DEFTPL="{name}\n{price}\n{colors}\n{sizes}\n\nPre-order about 2 weeks\nPickup: Lapin Clothing, St. 255 Corner 344\nDM size and colour to reserve";
   $('capTpl').value  = load('ah_tpl',DEFTPL);
@@ -1846,7 +1888,7 @@ details[open] summary::after{content:"\2013"}
   if(document.fonts && document.fonts.load)
     Promise.all([loadBubbleFont(),document.fonts.load('600 40px "Hanken Grotesk"')]).then(start,start);
   else start();
-})();
+});
 </script>
 
 </body></html>
