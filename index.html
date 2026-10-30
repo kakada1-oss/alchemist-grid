@@ -1,4 +1,44 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style><link rel="manifest" href="manifest.webmanifest"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="AH Grid"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="theme-color" content="#15181C"><link rel="apple-touch-icon" href="icon-180.png"></head><body>
+<div id="ahGate" hidden style="position:fixed;inset:0;z-index:2147483647;background:#15181C;color:#EEF3F8;font:16px -apple-system,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center">
+ <div style="max-width:360px">
+  <img src="icon-180.png" alt="" style="width:84px;height:84px;border-radius:20px;margin-bottom:18px">
+  <h1 style="font-size:22px;margin:0 0 10px">Alchemist Haus Grid</h1>
+  <div id="ahGateMsg" style="color:#97A3B1;line-height:1.5"></div>
+  <div id="ahGateBtns" style="margin-top:22px;display:flex;flex-direction:column;gap:10px"></div>
+ </div>
+</div>
+<script>
+(function(){
+  var ua=navigator.userAgent||'';
+  var ios=/iPhone|iPad|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  var android=/Android/.test(ua);
+  var standalone=window.navigator.standalone===true||(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches);
+  if('serviceWorker' in navigator){ try{navigator.serviceWorker.register('sw.js');}catch(e){} }
+  if(standalone||!(ios||android)){ window.AH_LOCKED=false; return; }
+  window.AH_LOCKED=true;
+  var inApp=/FBAN|FBAV|FB_IAB|Instagram|Line\/|TikTok|musical_ly|Bytedance|Telegram|MicroMessenger|Snapchat|Twitter|LinkedInApp/i.test(ua)
+    ||(ios&&!/Safari\//.test(ua))||(ios&&/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua));
+  var here=location.href.split('#')[0];
+  var g=document.getElementById('ahGate'), m=document.getElementById('ahGateMsg'), b=document.getElementById('ahGateBtns');
+  function btn(t,fn,pri){ var x=document.createElement('button'); x.textContent=t; x.style.cssText='padding:14px;border-radius:14px;border:0;font:600 16px -apple-system,system-ui,sans-serif;'+(pri?'background:#5BB4EC;color:#06242F':'background:#262B32;color:#EEF3F8'); x.onclick=fn; b.appendChild(x); return x; }
+  function safariUrl(){ return 'x-safari-'+here; }
+  function chromeUrl(){ return 'intent://'+here.replace(/^https?:\/\//,'')+'#Intent;scheme=https;package=com.android.chrome;end'; }
+  if(inApp){
+    m.innerHTML=ios?'This app only works in <b>Safari</b>.<br>Tap the button below. If nothing happens, tap <b>\u2022\u2022\u2022</b> or the share icon and choose <b>Open in Safari</b>.'
+                   :'This app only works in <b>Chrome</b>.<br>Tap the button below, or open the menu and choose <b>Open in Chrome</b>.';
+    btn(ios?'Open in Safari':'Open in Chrome',function(){ location.href=ios?safariUrl():chromeUrl(); },true);
+    btn('Copy link',function(){ var me=this; (navigator.clipboard?navigator.clipboard.writeText(here):Promise.reject()).then(function(){me.textContent='Copied \u2014 paste it in '+(ios?'Safari':'Chrome');},function(){ prompt('Copy this link',here); }); });
+    try{ location.href=ios?safariUrl():chromeUrl(); }catch(e){}
+  } else if(ios){
+    m.innerHTML='Add this app to your Home Screen to use it.<br><br>1. Tap the <b>Share</b> button <span style="font-size:20px">\u238B</span> (square with an arrow) in Safari\'s toolbar.<br>2. Tap <b>Add to Home Screen</b>.<br>3. Tap <b>Add</b>, then open <b>AH Grid</b> from your Home Screen.<br><br><small>Don\'t see Add to Home Screen? You may be inside another app: tap the compass icon to open in Safari.</small>';
+  } else {
+    m.innerHTML='Install this app to use it.<br><br>Tap <b>Install app</b> below, or open Chrome\'s <b>\u22EE</b> menu and choose <b>Add to Home screen</b> / <b>Install app</b>. Then open <b>AH Grid</b> from your Home Screen.';
+    var ib=btn('Install app',function(){ if(window.__bip){ window.__bip.prompt(); } else { alert('Open Chrome\u2019s \u22EE menu and choose Add to Home screen.'); } },true);
+    window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); window.__bip=e; });
+  }
+  g.hidden=false; g.style.display='flex';
+})();
+</script>
 <title>Alchemist Haus Grid</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bakbak+One&family=Baloo+2:wght@800&family=Bebas+Neue&family=Black+Ops+One&family=Boogaloo&family=Bowlby+One+SC&family=Bungee&family=Carter+One&family=Changa+One&family=Chewy&family=Concert+One&family=Fredoka:wght@600;700&family=Fugaz+One&family=Hanken+Grotesk:wght@400;500;600;700&family=Kantumruy+Pro:wght@700&family=Lilita+One&family=Luckiest+Guy&family=Modak&family=Newsreader:opsz,wght@6..72,400;6..72,500&family=Passion+One:wght@900&family=Paytone+One&family=Righteous&family=Rowdies:wght@700&family=Rubik+Mono+One&family=Shrikhand&family=Sigmar+One&family=Squada+One&family=Staatliches&family=Titan+One&family=Ultra&display=swap">
@@ -529,6 +569,7 @@ document.addEventListener('visibilitychange',function(){
 </script>
 <script>
 (function(start){
+  if(window.AH_LOCKED) return;
   var done=false; function go(){ if(!done){ done=true; start(); } }
   AH_SB.pull().then(go,go); setTimeout(go,3000);
 })(function(){
