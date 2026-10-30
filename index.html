@@ -1439,10 +1439,17 @@ details[open] summary::after{content:"\2013"}
     var cap=document.createElement('span'); cap.className='cap';
     cap.textContent=name+' · '+Math.round(blob.size/1024)+' KB';
     wrap.appendChild(im); wrap.appendChild(cap);
+    if(outside){
+      var f=new File([blob],name,{type:blob.type||'image/png'});
+      files.push(f);
+      wrap.style.cursor='pointer';
+      wrap.addEventListener('click', function(){ saveFiles([f]); });
+    }
     $('resList').appendChild(wrap);
     $('res').hidden=false;
     $('resHint').textContent = downloads
       ? 'Also saved through the prompt.'
+      : outside ? 'Tap Save all (then Save Images), or tap one image to save it.'
       : 'Press and hold an image, then Save to Photos.';
   }
 
@@ -1568,17 +1575,32 @@ details[open] summary::after{content:"\2013"}
       $('dockNote').textContent='Saving cannot be turned on for this viewer — press and hold the images instead';
     });
   });
-  // Outside Claude: save with a normal browser download (only change from the original).
-  if(!(window.claude && window.claude.use)){
-    downloads={save:function(o){
-      return new Promise(function(res){
-        var u=URL.createObjectURL(o.data), a=document.createElement('a');
-        a.href=u; a.download=o.filename; document.body.appendChild(a); a.click(); a.remove();
-        setTimeout(function(){ URL.revokeObjectURL(u); },60000);
-        res();
+  // Outside Claude: images appear below; tap one, or "Save all", to save to Photos/Files.
+  var outside=!(window.claude && window.claude.use), files=[];
+  function saveFiles(list){
+    if(!list.length) return;
+    if(navigator.canShare && navigator.canShare({files:list})){
+      navigator.share({files:list}).catch(function(e){
+        if(e && e.name!=='AbortError') $('dockNote').textContent='Could not open Save — press and hold an image instead';
       });
-    }};
+      return;
+    }
+    list.forEach(function(f,i){
+      setTimeout(function(){
+        var u=URL.createObjectURL(f), a=document.createElement('a');
+        a.href=u; a.download=f.name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function(){ URL.revokeObjectURL(u); },60000);
+      }, i*300);
+    });
+  }
+  if(outside){
     $('allow').hidden=true;
+    var sa=document.createElement('button');
+    sa.type='button'; sa.id='saveAll'; sa.textContent='Save all';
+    sa.style.cssText='margin:6px 0 10px;padding:10px 18px;border-radius:999px;border:0;background:#111;color:#fff;font:inherit;font-weight:600;cursor:pointer';
+    sa.addEventListener('click', function(){ saveFiles(files.slice()); });
+    $('resList').parentNode.insertBefore(sa,$('resList'));
+    $('go').addEventListener('click', function(){ files=[]; }, true);
   }
 
   if(window.claude && window.claude.use){
