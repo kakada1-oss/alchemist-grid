@@ -884,7 +884,69 @@ document.addEventListener('visibilitychange',function(){
   /* ---------- rendering tiles ---------- */
   function sz(b){ return {w:b.width||b.naturalWidth, h:b.height||b.naturalHeight}; }
 
-  function fitTile(bmp,dw,dh,fx,fy,box,z){
+  // Lanczos3 resampling, the same filter Claude's Pillow script uses
+  // (ImageOps.fit with Image.LANCZOS). Separable, 8-bit between passes like
+  // Pillow, filter widened when shrinking so it averages instead of aliasing.
+  function lzW(src,sl,dl){
+    var sc=sl/dl, fs=Math.max(1,sc), sup=3*fs, n=Math.ceil(sup)*2+1;
+    var idx=new Int32Array(dl*n), wt=new Float32Array(dl*n);
+    for(var i=0;i<dl;i++){
+      var c=(i+0.5)*sc, lo=Math.floor(c-sup), sum=0;
+      for(var k=0;k<n;k++){
+        var j=lo+k, x=(j+0.5-c)/fs, w=0;
+        if(x===0) w=1; else if(x>-3&&x<3){ var px=Math.PI*x; w=3*Math.sin(px)*Math.sin(px/3)/(px*px); }
+        idx[i*n+k]=j<0?0:(j>=sl?sl-1:j); wt[i*n+k]=w; sum+=w;
+      }
+      if(sum) for(k=0;k<n;k++) wt[i*n+k]/=sum;
+    }
+    return {n:n,idx:idx,wt:wt};
+  }
+  function lanczos(sd,sw,sh,dw,dh){
+    var fx=lzW(null,sw,dw), fy=lzW(null,sh,dh), n,i,k,x,y,r,g,b,a,w,p;
+    var mid=new Uint8ClampedArray(dw*sh*4); n=fx.n;
+    for(y=0;y<sh;y++){
+      var row=y*sw*4, mo=y*dw*4;
+      for(x=0;x<dw;x++){
+        r=g=b=a=0;
+        for(k=0;k<n;k++){ w=fx.wt[x*n+k]; if(!w) continue; p=row+fx.idx[x*n+k]*4;
+          r+=sd[p]*w; g+=sd[p+1]*w; b+=sd[p+2]*w; a+=sd[p+3]*w; }
+        p=mo+x*4; mid[p]=r+0.5; mid[p+1]=g+0.5; mid[p+2]=b+0.5; mid[p+3]=a+0.5;
+      }
+    }
+    var out=new ImageData(dw,dh), od=out.data; n=fy.n;
+    for(y=0;y<dh;y++){
+      var base=y*n, oo=y*dw*4;
+      for(x=0;x<dw;x++){
+        r=g=b=a=0; var xo=x*4;
+        for(k=0;k<n;k++){ w=fy.wt[base+k]; if(!w) continue; p=fy.idx[base+k]*dw*4+xo;
+          r+=mid[p]*w; g+=mid[p+1]*w; b+=mid[p+2]*w; a+=mid[p+3]*w; }
+        p=oo+xo; od[p]=r+0.5; od[p+1]=g+0.5; od[p+2]=b+0.5; od[p+3]=a+0.5;
+      }
+    }
+    return out;
+  }
+  function fitTileHQ(bmp,dw,dh,fx,fy,box,z){
+    var s=sz(bmp); box=box||{x:0,y:0,w:1,h:1};
+    var bw=s.w*box.w, bh=s.h*box.h, ox=s.w*box.x, oy=s.h*box.y;
+    var scale=Math.max(dw/bw,dh/bh)*(z||1);
+    var sw=Math.max(1,Math.round(dw/scale)), sh=Math.max(1,Math.round(dh/scale));
+    var sx=Math.round(ox+(bw-sw)*fx), sy=Math.round(oy+(bh-sh)*fy);
+    // Very large crops are first halved (box filter) to cap phone memory;
+    // Lanczos still does the final step from at least 2x the tile size.
+    var cw=sw, ch=sh;
+    while(cw/2>=dw*2 && ch/2>=dh*2){ cw=Math.round(cw/2); ch=Math.round(ch/2); }
+    var cur=document.createElement('canvas'); cur.width=cw; cur.height=ch;
+    var cx=cur.getContext('2d'); cx.imageSmoothingEnabled=true; cx.imageSmoothingQuality='high';
+    cx.drawImage(bmp,sx,sy,sw,sh,0,0,cw,ch);
+    var sd=cx.getImageData(0,0,cw,ch).data; cur.width=cur.height=0;
+    var img=lanczos(sd,cw,ch,dw,dh); sd=null;
+    var out=document.createElement('canvas'); out.width=dw; out.height=dh;
+    out.getContext('2d').putImageData(img,0,0);
+    return out;
+  }
+
+  function fitTile(bmp,dw,dh,fx,fy,box,z,hq){
+    if(hq){ try{ return fitTileHQ(bmp,dw,dh,fx,fy,box,z); }catch(e){ console.warn('lanczos failed, using canvas',e); } }
     var s=sz(bmp); box=box||{x:0,y:0,w:1,h:1};
     var bw=s.w*box.w, bh=s.h*box.h, ox=s.w*box.x, oy=s.h*box.y;
     // At zoom 1 a portrait photo fills the tile's width exactly, so there is
@@ -1014,12 +1076,12 @@ document.addEventListener('visibilitychange',function(){
     return hits;
   }
 
-  function paintTiles(ctx,g,bmps,t){
+  function paintTiles(ctx,g,bmps,t,hq){
     for(var i=0;i<4;i++){
       var b=bmps[i]||bmps[fillIdx(g,i)];
       var src=g.items[i]||g.items[fillIdx(g,i)];
       var o=g.off[i]||{x:0.5,y:g.focus,z:1};
-      ctx.drawImage(fitTile(b,t.tw,t.th,o.x,o.y,boxOf(src),o.z||1),t.pos[i][0],t.pos[i][1]);
+      ctx.drawImage(fitTile(b,t.tw,t.th,o.x,o.y,boxOf(src),o.z||1,hq),t.pos[i][0],t.pos[i][1]);
     }
   }
 
@@ -1027,7 +1089,7 @@ document.addEventListener('visibilitychange',function(){
     return decode(g.items).then(function(bmps){
       var cv=document.createElement('canvas'); cv.width=W; cv.height=H;
       var ctx=cv.getContext('2d'), t=tiles(W,H);
-      paintTiles(ctx,g,bmps,t);
+      paintTiles(ctx,g,bmps,t,true);
       bmps.forEach(function(b){ b.close && b.close(); });
       var amt=Number($('sharp').value);
       if(amt>0) unsharp(ctx,W,H,amt/100*0.9);
