@@ -1551,7 +1551,10 @@ document.addEventListener('visibilitychange',function(){
     $('go').disabled=true; $('stop').hidden=false;
 
     var fmt=$('fmt').value, ext=fmt==='png'?'png':'jpg';
-    var m=Number($('outSize').value)||1, W=OUT_W*m, H=OUT_H*m;
+    var m=Number($('outSize').value)||1;
+    // iOS Safari caps a canvas at ~16.7 MP; 4096x5120 (21 MP) silently degrades there, so cap at 3584x4480.
+    if(m>1 && (/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)) && OUT_W*m*OUT_H*m>16.7e6) m=1.75;
+    var W=Math.round(OUT_W*m), H=Math.round(OUT_H*m);
     var per=Number($('perZip').value)||1;
     var total=groups.length, done=0, batch=0, saved=0;
 
