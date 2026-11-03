@@ -738,8 +738,8 @@ document.addEventListener('visibilitychange',function(){
       return;
     }
     clearTimeout(armed); armed=null; b.textContent='Clear all';
-    photos=[]; groups=[]; meta=new Map(); open.clear(); shown=[];
-    $('resList').innerHTML=''; $('res').hidden=true;
+    photos=[]; groups=[]; meta=new Map(); open.clear();
+    clearResults();
     $('dockNote').textContent=''; regroup();
   });
 
@@ -910,7 +910,9 @@ document.addEventListener('visibilitychange',function(){
         r=g=b=a=0;
         for(k=0;k<n;k++){ w=fx.wt[x*n+k]; if(!w) continue; p=row+fx.idx[x*n+k]*4;
           r+=sd[p]*w; g+=sd[p+1]*w; b+=sd[p+2]*w; a+=sd[p+3]*w; }
-        p=mo+x*4; mid[p]=r+0.5; mid[p+1]=g+0.5; mid[p+2]=b+0.5; mid[p+3]=a+0.5;
+        // Uint8ClampedArray rounds to nearest on store; adding 0.5 first
+        // rounded up twice and brightened the export.
+        p=mo+x*4; mid[p]=r; mid[p+1]=g; mid[p+2]=b; mid[p+3]=a;
       }
     }
     var out=new ImageData(dw,dh), od=out.data; n=fy.n;
@@ -920,7 +922,7 @@ document.addEventListener('visibilitychange',function(){
         r=g=b=a=0; var xo=x*4;
         for(k=0;k<n;k++){ w=fy.wt[base+k]; if(!w) continue; p=fy.idx[base+k]*dw*4+xo;
           r+=mid[p]*w; g+=mid[p+1]*w; b+=mid[p+2]*w; a+=mid[p+3]*w; }
-        p=oo+xo; od[p]=r+0.5; od[p+1]=g+0.5; od[p+2]=b+0.5; od[p+3]=a+0.5;
+        p=oo+xo; od[p]=r; od[p+1]=g; od[p+2]=b; od[p+3]=a;
       }
     }
     return out;
@@ -1033,7 +1035,7 @@ document.addEventListener('visibilitychange',function(){
       chars.forEach(function(c,i){
         var a=(acc+w[i]/2-total/2)/R;
         acc+=w[i]+track;
-        var x=CX+R*Math.sin(a)*dir;
+        var x=CX+R*Math.sin(a);        // no *dir here: it mirrored the letter order
         var y=(dir>0) ? (CY+R-R*Math.cos(a)) : (CY-R+R*Math.cos(a));
         if(y<lo) lo=y; if(y>hi) hi=y;
         draw(c,x,y,a*dir);
@@ -1065,12 +1067,13 @@ document.addEventListener('visibilitychange',function(){
 
   // Draws the price and any extra text, and hands back where each landed so
   // the preview knows what a finger is touching.
-  function paintLabels(ctx,g,W,H){
+  // `exporting` keeps the edit-mode placeholder out of saved images.
+  function paintLabels(ctx,g,W,H,exporting){
     var hits=[];
     var b=bubble(ctx,W,H,priceOut(g.price),g.bub.x,g.bub.y,1);
     if(b) hits.push({kind:'bub',box:b});
     g.texts.forEach(function(tx,i){
-      var r=bubble(ctx,W,H, tx.t || (editOn?'\u2026':''), tx.x, tx.y, tx.s||0.62);
+      var r=bubble(ctx,W,H, tx.t || (editOn&&!exporting?'\u2026':''), tx.x, tx.y, tx.s||0.62);
       if(r) hits.push({kind:'txt',i:i,box:r});
     });
     return hits;
@@ -1093,7 +1096,7 @@ document.addEventListener('visibilitychange',function(){
       bmps.forEach(function(b){ b.close && b.close(); });
       var amt=Number($('sharp').value);
       if(amt>0) unsharp(ctx,W,H,amt/100*0.9);
-      paintLabels(ctx,g,W,H);
+      paintLabels(ctx,g,W,H,true);
       return new Promise(function(res,rej){
         cv.toBlob(function(bl){
           cv.width=cv.height=0;
@@ -1205,9 +1208,12 @@ document.addEventListener('visibilitychange',function(){
     if(pvPending) return;
     pvPending=true;
     decode(g.items).then(function(bmps){
+      pvPending=false;
+      // Taps that came in while this decoded were dropped above; if the user
+      // has moved to another grid, draw that one instead of this stale one.
+      if(groups[pv]!==g){ bmps.forEach(function(b){ b.close && b.close(); }); drawPreview(); return; }
       dropCache();
       pvCache.g=g; pvCache.bmps=bmps;
-      pvPending=false;
       paintPreview(g,bmps);
     }).catch(function(){ pvPending=false; });
   }
@@ -1218,17 +1224,18 @@ document.addEventListener('visibilitychange',function(){
     if(!n){ $('est').textContent=''; return; }
     var m=Number($('outSize').value)||1;
     var per=($('fmt').value==='png'?8:1.1)*m*m;
-    var per_=Number($('perZip').value)||1;
-    $('est').textContent=Math.round(per*n)+' MB total · '+Math.ceil(n/per_)+' save'+(Math.ceil(n/per_)===1?'':'s');
+    var per_=Number($('perZip').value)||1, k=Math.ceil(n/per_);
+    $('est').textContent=Math.round(per*n)+' MB total'+(downloads? ' · '+k+' save'+(k===1?'':'s') : '');
   }
 
+  // Zips are only made through Claude's downloads; everywhere else each grid
+  // is saved on its own, so the Saving choice is hidden rather than ignored.
   function setSummary(){
-    var save_=$('perZip').value;
-    $('setSum').textContent=['Output'].concat([
-      $('fmt').value.toUpperCase(),
-      (Number($('outSize').value)===2?'4096':'2048')+' px',
-      save_==='1' ? 'one at a time' : save_+' per zip'
-    ]).join('  \u00b7  ');
+    var save_=$('perZip').value, zl=document.querySelector('label[for=perZip]');
+    var bits=[$('fmt').value.toUpperCase(), (Number($('outSize').value)===2?'4096':'2048')+' px'];
+    if(downloads) bits.push(save_==='1' ? 'one at a time' : save_+' per zip');
+    $('setSum').textContent=['Output'].concat(bits).join('  \u00b7  ');
+    $('perZip').hidden=!downloads; if(zl) zl.hidden=!downloads;
   }
 
   function render(){
@@ -1559,6 +1566,9 @@ document.addEventListener('visibilitychange',function(){
   $('priceMode').addEventListener('change', function(){ save('ah_pmode',this.value); });
   $('capLang').value=load('ah_lang','en');
   $('capLang').addEventListener('change', function(){ save('ah_lang',this.value); });
+  // Language only steers captions Claude writes; the template ignores it.
+  function syncLang(){ var f=$('capLang').closest('.f'); if(f) f.hidden=!sampler; }
+  syncLang();
   $('priceList').addEventListener('input', function(){ save('ah_pricelist',this.value); render(); });
 
   ['fmt','outSize','perZip'].forEach(function(id){
@@ -1574,8 +1584,14 @@ document.addEventListener('visibilitychange',function(){
     return 'alchemist-'+String(i+1).padStart(3,'0')+'-'+p+'.'+ext;
   }
   var shown=[];
+  // Each result keeps a full-size image alive until its URL is revoked.
+  // Free them before the next build, or a few builds can crash Safari.
+  function clearResults(){
+    shown.forEach(function(u){ URL.revokeObjectURL(u); });
+    shown=[]; files=[];
+    $('resList').innerHTML=''; $('res').hidden=true;
+  }
   function addResult(name,blob){
-    shown.forEach(function(u){ /* keep */ });
     var url=URL.createObjectURL(blob);
     shown.push(url);
     var wrap=document.createElement('div'); wrap.className='ri';
@@ -1609,7 +1625,7 @@ document.addEventListener('visibilitychange',function(){
   $('go').addEventListener('click', function(){
     if(building || !groups.length) return;
     building=true; stopping=false;
-    var urls=$('resList'); urls.innerHTML=''; $('res').hidden=true;
+    clearResults();
     $('go').disabled=true; $('stop').hidden=false;
 
     var fmt=$('fmt').value, ext=fmt==='png'?'png':'jpg';
@@ -1647,7 +1663,7 @@ document.addEventListener('visibilitychange',function(){
       function pack(){
         if(!downloads){
           made.length=0;
-          if(end>=total || stopping) finish('Built '+done+' of '+total+' — press and hold each image to save');
+          if(end>=total || stopping) finish('Built '+done+' of '+total+' — '+(outside?'tap Save all below':'press and hold each image to save'));
           else setTimeout(function(){ run(end); },0);
           return;
         }
@@ -1691,6 +1707,7 @@ document.addEventListener('visibilitychange',function(){
     downloads=d; $('allow').hidden=true;
     $('dockNote').textContent='Saving on';
     $('resHint').textContent='Also saved through the prompt.';
+    setSummary(); estimate();
   }
 
   // Ask the viewer for the save permission, then show them the panel if the
@@ -1748,16 +1765,16 @@ document.addEventListener('visibilitychange',function(){
     sa.style.cssText='margin:6px 0 10px;padding:10px 18px;border-radius:999px;border:0;background:#111;color:#fff;font:inherit;font-weight:600;cursor:pointer';
     sa.addEventListener('click', function(){ saveFiles(files.slice()); });
     $('resList').parentNode.insertBefore(sa,$('resList'));
-    $('go').addEventListener('click', function(){ files=[]; }, true);
   }
 
   if(window.claude && window.claude.use){
     window.claude.use('downloads').then(function(d){
       downloads=d; if(!d) noSave();
+      setSummary(); estimate();
     }, function(){ downloads=null; noSave(); });
     window.claude.use('sample').then(function(sm){
       sampler=sm;
-      if(sm){ $('writeAll').hidden=false; render(); }
+      if(sm){ $('writeAll').hidden=false; syncLang(); render(); }
     }, function(){ sampler=null; });
   }
 
