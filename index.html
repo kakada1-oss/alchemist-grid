@@ -30,9 +30,17 @@
     btn('Copy link',function(){ var me=this; (navigator.clipboard?navigator.clipboard.writeText(here):Promise.reject()).then(function(){me.textContent='Copied \u2014 paste it in '+(ios?'Safari':'Chrome');},function(){ prompt('Copy this link',here); }); });
     try{ location.href=ios?safariUrl():chromeUrl(); }catch(e){}
   } else if(ios){
-    m.innerHTML='Add this app to your Home Screen to use it.<br><br>1. Tap the <b>Share</b> button <span style="font-size:20px">\u238B</span> (square with an arrow) in Safari\'s toolbar.<br>2. Tap <b>Add to Home Screen</b>.<br>3. Tap <b>Add</b>, then open <b>AH Grid</b> from your Home Screen.<br><br><small>Don\'t see Add to Home Screen? You may be inside another app: tap the compass icon to open in Safari.</small>';
+    // The real iOS Share glyph (square, arrow up), not a look-alike character.
+    var SH='<svg width="17" height="21" viewBox="0 0 17 21" fill="none" stroke="#5BB4EC" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-4px" role="img" aria-label="Share icon"><path d="M8.5 13V1.5M4.5 5.5l4-4 4 4"/><path d="M5.5 8.5H2v11h13v-11h-3.5"/></svg>';
+    m.innerHTML='<div style="text-align:left">Install it once, then always open it from your Home Screen.<ol style="margin:12px 0 0;padding-left:22px;line-height:1.6">'
+      +'<li>Tap <b>Share</b> '+SH+' in Safari. Don\u2019t see it? Tap <b>\u2022\u2022\u2022</b> first.</li>'
+      +'<li>Tap <b>Add to Home Screen</b>. Scroll down if you don\u2019t see it.</li>'
+      +'<li>Tap <b>Add</b>, then open <b>AH Grid</b> on your Home Screen.</li></ol>'
+      +'<p style="margin:14px 0 0;font-size:13px">No Add to Home Screen? You may be inside another app. Open this link in Safari first.</p></div>';
   } else {
-    m.innerHTML='Install this app to use it.<br><br>Tap <b>Install app</b> below, or open Chrome\'s <b>\u22EE</b> menu and choose <b>Add to Home screen</b> / <b>Install app</b>. Then open <b>AH Grid</b> from your Home Screen.';
+    m.innerHTML='<div style="text-align:left">Install it once, then always open it from your Home Screen.<ol style="margin:12px 0 0;padding-left:22px;line-height:1.6">'
+      +'<li>Tap <b>Install app</b> below. If nothing happens, open Chrome\u2019s <b>\u22EE</b> menu and choose <b>Install app</b>.</li>'
+      +'<li>Open <b>AH Grid</b> from your Home Screen.</li></ol></div>';
     var ib=btn('Install app',function(){ if(window.__bip){ window.__bip.prompt(); } else { alert('Open Chrome\u2019s \u22EE menu and choose Add to Home screen.'); } },true);
     window.addEventListener('beforeinstallprompt',function(e){ e.preventDefault(); window.__bip=e; });
   }
@@ -50,7 +58,7 @@
 :root{
   --bg:#15181C; --surface:#1D2127; --raised:#262B32; --sunken:#111418;
   --line:#2F3640; --line2:#3F4854;
-  --fg:#EEF3F8; --muted:#97A3B1; --faint:#68757F;
+  --fg:#EEF3F8; --muted:#97A3B1; --faint:#8794A0;   /* 4.6:1+ on every surface; #68757F was 3.0-3.9 */
   --accent:#5BB4EC; --accent-fg:#06242F; --accent-dim:#3F93C8;
   --warn:#E8AC63;
   --display:'Newsreader',Georgia,serif;
@@ -82,7 +90,9 @@ button,input,select,textarea{font-family:var(--body)}
 }
 .btn:active{background:var(--line);transform:translateY(1px)}
 .btn.pri{background:var(--accent);color:var(--accent-fg);border-color:transparent;font-weight:700;font-size:1rem}
+#dock .btn{min-height:46px;padding:11px 14px}
 #dock .btn.pri{min-height:46px;padding:11px 16px}
+#dock .row{gap:8px}
 .btn.pri:active{background:var(--accent-dim)}
 .btn[disabled]{opacity:.35;cursor:default}
 .row{display:flex;gap:10px}
@@ -256,11 +266,24 @@ details[open] summary::after{content:"\2013"}
 .sect:first-child{border-top:0;padding-top:4px}
 .sh{font-family:var(--display);font-size:1rem;font-weight:500;color:var(--muted);margin:0}
 
-.res{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px;display:flex;flex-direction:column;gap:11px}
-.res img{width:100%;display:block;border-radius:11px;border:1px solid var(--line)}
-#resList{display:flex;flex-direction:column;gap:14px}
-.ri{display:flex;flex-direction:column;gap:6px}
+.res{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:15px;display:flex;flex-direction:column;gap:11px;
+  scroll-margin-top:calc(12vh + 80px)}
+/* One row per finished grid: what it is, then the two things you do with it. */
+#resList{display:flex;flex-direction:column;gap:10px}
+.ri{display:flex;gap:12px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:12px;background:var(--sunken);transition:opacity .15s}
+.ri img{width:84px;flex:0 0 84px;aspect-ratio:4/5;object-fit:cover;display:block;border-radius:8px;border:1px solid var(--line)}
+.rs{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:3px}
+.rt{font-weight:700;font-size:.95rem;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ri .cap{font-size:.74rem;color:var(--faint);font-variant-numeric:tabular-nums}
+.ra{display:flex;gap:8px;margin-top:5px}
+.ra button{flex:1;min-height:40px;padding:0 8px;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;
+  border:1px solid var(--line2);background:var(--raised);color:var(--fg);white-space:nowrap}
+.ra button.b{background:var(--accent);color:var(--accent-fg);border-color:transparent}
+.ri.done{opacity:.55}
+.ri.done .rt::after{content:"  \2713 shared";color:var(--accent);font-size:.78rem}
+.res.stale .ri{opacity:.35}
+.res.stale .ra button.b{pointer-events:none}
+.hint.warn{color:var(--warn);font-weight:700}
 .bar{height:6px;border-radius:99px;background:var(--sunken);overflow:hidden;border:1px solid var(--line)}
 .bar i{display:block;height:100%;width:0;background:var(--accent);transition:width .18s linear}
 
@@ -342,6 +365,7 @@ details[open] summary::after{content:"\2013"}
   </div>
   <div class="res" id="res" hidden>
     <p class="sh" id="resHead">Finished</p>
+    <p class="hint warn" id="resStale" hidden>Changed since this build. Tap Build again to update the images.</p>
     <p class="hint" id="resHint"></p>
     <div id="resList"></div>
   </div>
@@ -518,7 +542,10 @@ details[open] summary::after{content:"\2013"}
 <div id="dock">
   <div class="in">
     <div class="bar" id="pbar" hidden><i></i></div>
-    <button class="btn pri" id="go" type="button" disabled>Build and save</button>
+    <div class="row">
+      <button class="btn pri" id="go" type="button" disabled>Build and save</button>
+      <button class="btn pri" id="saveDock" type="button" hidden>Save all</button>
+    </div>
     <div class="dnote">
       <span id="dockNote"></span>
       <button type="button" id="allow" hidden>Turn on saving</button>
@@ -1190,6 +1217,7 @@ document.addEventListener('visibilitychange',function(){
   }
 
   function drawPreview(){
+    checkStale();
     var pw=512, ph=640, ctx=prev.getContext('2d'), t=tiles(pw,ph);
     if(!groups.length){
       dropCache();
@@ -1225,7 +1253,8 @@ document.addEventListener('visibilitychange',function(){
     var m=Number($('outSize').value)||1;
     var per=($('fmt').value==='png'?8:1.1)*m*m;
     var per_=Number($('perZip').value)||1, k=Math.ceil(n/per_);
-    $('est').textContent=Math.round(per*n)+' MB total'+(downloads? ' · '+k+' save'+(k===1?'':'s') : '');
+    $('est').textContent=downloads ? Math.round(per*n)+' MB total · '+k+' save'+(k===1?'':'s')
+      : 'About '+Math.round(per*n)+' MB for '+n+' image'+(n===1?'':'s');
   }
 
   // Zips are only made through Claude's downloads; everywhere else each grid
@@ -1249,6 +1278,7 @@ document.addEventListener('visibilitychange',function(){
     if(!building) $('go').textContent = groups.length
       ? 'Build '+groups.length+' grid'+(groups.length===1?'':'s')
       : 'Build and save';
+    dockState();
     $('editBar').hidden = groups.length<1;
     $('modeBar').hidden = groups.length<1;
     $('modeLbl').hidden = groups.length<2;
@@ -1588,30 +1618,96 @@ document.addEventListener('visibilitychange',function(){
   // Free them before the next build, or a few builds can crash Safari.
   function clearResults(){
     shown.forEach(function(u){ URL.revokeObjectURL(u); });
-    shown=[]; files=[];
+    shown=[]; files=[]; builtSig=null; stale=false;
     $('resList').innerHTML=''; $('res').hidden=true;
+    $('res').classList.remove('stale'); $('resStale').hidden=true;
+    dockState();
   }
-  function addResult(name,blob){
+
+  // Results go stale the moment anything that shows in the image changes, so
+  // nobody posts the last version's price. Name, colours and caption don't count.
+  var builtSig=null, stale=false;
+  function outSig(){
+    var ids=['psize','ptrack','pcurve','pout','pfill','pstroke','pfont','strength','sharp','fmt','outSize'];
+    return JSON.stringify([
+      groups.map(function(g){ return [g.items.map(function(p){ return photos.indexOf(p); }),g.price,g.focus,g.fill,g.off,g.bub,g.texts]; }),
+      ids.map(function(id){ return $(id).value; }), $('trim').checked
+    ]);
+  }
+  function readyNote(){
+    return shown.length+' ready'+(outside ? ' — Save all, or Share each grid' : '');
+  }
+  function checkStale(){
+    if(!builtSig || !shown.length) return;
+    var s=outSig()!==builtSig;
+    if(s===stale) return;
+    stale=s;
+    $('res').classList.toggle('stale',s); $('resStale').hidden=!s;
+    $('dockNote').textContent = s ? 'Changed since build — tap Build again' : readyNote();
+    dockState();
+  }
+  // Re-check after any field's own handler has applied its change.
+  document.addEventListener('input', function(){ requestAnimationFrame(checkStale); }, true);
+  document.addEventListener('change', function(){ requestAnimationFrame(checkStale); }, true);
+
+  // Outside Claude the dock leads the way: Build, then Save all.
+  function dockState(){
+    if(!outside) return;
+    var ready=files.length>0 && !stale && !building;
+    $('saveDock').hidden=!ready;
+    $('saveDock').textContent='Save all '+files.length;
+    $('go').classList.toggle('pri',!ready);
+    if(!building && files.length) $('go').textContent='Build again';
+  }
+
+  // One grid with its caption, ready to post: in the share sheet, pick Telegram.
+  function shareOne(f,g,i,btn,row){
+    if(stale) return;
+    var data={files:[f], text:captionFor(g,i)};
+    if(navigator.canShare && navigator.canShare(data)){
+      navigator.share(data).then(function(){ row.classList.add('done'); }, function(e){
+        if(e && e.name!=='AbortError') $('dockNote').textContent='Could not open Share — copy the caption and tap the picture';
+      });
+      return;
+    }
+    copyText(data.text,btn,'Caption copied'); saveFiles([f]);
+  }
+
+  function addResult(name,blob,g,i){
     var url=URL.createObjectURL(blob);
     shown.push(url);
-    var wrap=document.createElement('div'); wrap.className='ri';
+    var row=document.createElement('div'); row.className='ri';
     var im=document.createElement('img');
     im.src=url; im.alt=name; im.loading='lazy';
+    var side=document.createElement('div'); side.className='rs';
+    var tt=document.createElement('div'); tt.className='rt';
+    tt.textContent=(g.name||('Grid '+(i+1)))+'  ·  '+priceOut(g.price);
     var cap=document.createElement('span'); cap.className='cap';
-    cap.textContent=name+' · '+Math.round(blob.size/1024)+' KB';
-    wrap.appendChild(im); wrap.appendChild(cap);
+    cap.textContent=Math.round(blob.size/1024)+' KB';
+    var acts=document.createElement('div'); acts.className='ra';
+    var cp=document.createElement('button');
+    cp.type='button'; cp.textContent='Copy caption';
+    cp.addEventListener('click', function(){ copyText(captionFor(g,i),cp,'Copied'); });
+    acts.appendChild(cp);
     if(outside){
       var f=new File([blob],name,{type:blob.type||'image/png'});
       files.push(f);
-      wrap.style.cursor='pointer';
-      wrap.addEventListener('click', function(){ saveFiles([f]); });
+      im.style.cursor='pointer';
+      im.addEventListener('click', function(){ saveFiles([f]); });
+      var sh=document.createElement('button');
+      sh.type='button'; sh.className='b'; sh.textContent='Share';
+      sh.addEventListener('click', function(){ shareOne(f,g,i,sh,row); });
+      acts.appendChild(sh);
     }
-    $('resList').appendChild(wrap);
+    side.appendChild(tt); side.appendChild(cap); side.appendChild(acts);
+    row.appendChild(im); row.appendChild(side);
+    $('resList').appendChild(row);
     $('res').hidden=false;
+    $('resHead').textContent=shown.length+' ready';
     $('resHint').textContent = downloads
       ? 'Also saved through the prompt.'
-      : outside ? 'Tap Save all (then Save Images), or tap one image to save it.'
-      : 'Press and hold an image, then Save to Photos.';
+      : outside ? 'Save all puts every grid in Photos. Share sends one grid with its caption — pick Telegram. Tap a picture to save just that one.'
+      : 'Press and hold a picture, then Save to Photos.';
   }
 
   function prog(done,total,msg){
@@ -1634,12 +1730,14 @@ document.addEventListener('visibilitychange',function(){
     if(m>1 && (/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)) && OUT_W*m*OUT_H*m>16.7e6) m=1.75;
     var W=Math.round(OUT_W*m), H=Math.round(OUT_H*m);
     var per=Number($('perZip').value)||1;
-    var total=groups.length, done=0, batch=0, saved=0;
+    var total=groups.length, done=0, batch=0, saved=0, sig0=outSig();
 
     function finish(msg){
       building=false; stopping=false;
       $('stop').hidden=true; $('go').disabled=false; $('pbar').hidden=true;
       $('dockNote').textContent=msg;
+      if(shown.length){ builtSig=sig0; checkStale(); }   // edits made mid-build show up at once
+      render();
     }
 
     function run(start){
@@ -1653,7 +1751,7 @@ document.addEventListener('visibilitychange',function(){
         renderGroup(groups[i],W,H,fmt).then(function(bl){
           var nm=fname(groups[i],i,ext);
           made.push({name:nm,blob:bl}); done++;
-          addResult(nm,bl);
+          addResult(nm,bl,groups[i],i);
           setTimeout(function(){ one(i+1); },0);
         }).catch(function(err){
           finish('Stopped at grid '+(i+1)+' — try JPEG or 2048 px');
@@ -1663,7 +1761,11 @@ document.addEventListener('visibilitychange',function(){
       function pack(){
         if(!downloads){
           made.length=0;
-          if(end>=total || stopping) finish('Built '+done+' of '+total+' — '+(outside?'tap Save all below':'press and hold each image to save'));
+          if(end>=total || stopping){
+            finish(outside ? readyNote() : 'Built '+done+' of '+total+' — press and hold each image to save');
+            // Results live on the Grids tab; building from Style or More used to leave them out of sight.
+            if(outside && shown.length){ showTab('grids'); $('res').scrollIntoView({behavior:'smooth',block:'start'}); }
+          }
           else setTimeout(function(){ run(end); },0);
           return;
         }
@@ -1743,12 +1845,12 @@ document.addEventListener('visibilitychange',function(){
   // Outside Claude: images appear below; tap one, or "Save all", to save to Photos/Files.
   var outside=!(window.claude && window.claude.use), files=[];
   function saveFiles(list){
-    if(!list.length) return;
+    if(!list.length) return Promise.resolve(false);
     if(navigator.canShare && navigator.canShare({files:list})){
-      navigator.share({files:list}).catch(function(e){
+      return navigator.share({files:list}).then(function(){ return true; }, function(e){
         if(e && e.name!=='AbortError') $('dockNote').textContent='Could not open Save — press and hold an image instead';
+        return false;
       });
-      return;
     }
     list.forEach(function(f,i){
       setTimeout(function(){
@@ -1757,14 +1859,16 @@ document.addEventListener('visibilitychange',function(){
         setTimeout(function(){ URL.revokeObjectURL(u); },60000);
       }, i*300);
     });
+    return Promise.resolve(true);
   }
   if(outside){
     $('allow').hidden=true;
-    var sa=document.createElement('button');
-    sa.type='button'; sa.id='saveAll'; sa.textContent='Save all';
-    sa.style.cssText='margin:6px 0 10px;padding:10px 18px;border-radius:999px;border:0;background:#111;color:#fff;font:inherit;font-weight:600;cursor:pointer';
-    sa.addEventListener('click', function(){ saveFiles(files.slice()); });
-    $('resList').parentNode.insertBefore(sa,$('resList'));
+    // Save all lives in the dock, so it is in reach whichever tab is open.
+    $('saveDock').addEventListener('click', function(){
+      saveFiles(files.slice()).then(function(ok){
+        if(ok) $('dockNote').textContent='Saved ✓ — now Share each grid to post it';
+      });
+    });
   }
 
   if(window.claude && window.claude.use){
